@@ -13,16 +13,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Auto-extract ZIP if uploaded directly
+      - name: Extract ZIP if present
         run: |
-          if ls *.zip 1> /dev/null 2>&1; then
-            echo "Found zip file in repository, extracting..."
+          if compgen -G "*.zip" > /dev/null; then
+            echo "Unzipping archive..."
             unzip -o *.zip
             if [ -d "OneTapAlarm" ]; then
               cp -rn OneTapAlarm/* . 2>/dev/null || true
               cp -rn OneTapAlarm/.[!.]* . 2>/dev/null || true
             fi
           fi
+          echo "Files in repository:"
+          ls -la
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -30,26 +32,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK & Accept Licenses
-        uses: android-actions/setup-android@v3
+      - name: Accept Android Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Ensure Gradle Wrapper exists
+      - name: Make gradlew executable
         run: |
           if [ ! -f "gradlew" ]; then
-            echo "gradlew not found, generating wrapper..."
             gradle wrapper --gradle-version 8.9
           fi
           chmod +x gradlew
 
-      - name: Build Debug APK with Gradle
+      - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: OneTapAlarm-debug-apk
           path: '**/build/outputs/apk/debug/*.apk'
-          if-no-files-found: error
